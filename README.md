@@ -24,23 +24,28 @@ This repository contains a pipeline for generating synthetic wavefront data and 
             ├─ ckpt/     # Model checkpoints (Orbax)
             ├─ log.xlsx  # Training logs (losses, weights, metrics)
             └─ vis/      # Visualizations (pred vs true, differences)
-🚀 Quick Start
-1) Install Dependencies
+```
+## 🚀 Quick Start
+### 1) Install Dependencies
+```bash
 pip install -r requirements.txt
-2) Generate Data (Required First Step)
+```
+### 2) Generate Data (Required First Step)
 Run the generator to create the dataset:
-
+```bash
 python Generator.py
+```
 This creates the data/ directory with:
 
 data/derivatives.npy
 
 data/U_true.npy
 
-3) Train and Visualize
+### 3) Train and Visualize
 Run the training pipeline:
-
+```bash
 python Wavefront.py
+```
 This creates a new run folder at results/gradient_recon/<timestamp>/ containing:
 
 checkpoints in ckpt/
@@ -49,7 +54,7 @@ training logs in log.xlsx
 
 visualizations in vis/
 
-🔬 Data & Model Overview
+## 🔬 Data & Model Overview
 Each sample is defined on a square grid [-1, 1] × [-1, 1] with a unit-disk mask
 (values outside the pupil are zeroed).
 
@@ -69,27 +74,27 @@ Residual loss: enforces consistency between U and its derivatives via autodiff (
 
 Residual weight adaptation (NTK-style): balances training speeds using a gradient norm ratio
 
-🧮 Generator Specifications
+## 🧮 Generator Specifications
 The generator creates wavefronts on the unit disk (normalized inside, zero outside).
 
-Zernike Wavefronts
+### Zernike Wavefronts
 Linear combination of Zernike modes:
 
-one dominant coefficient from U(-first_amp, first_amp) (excluding piston)
+- one dominant coefficient from U(-first_amp, first_amp) (excluding piston)
 
-two additional coefficients from U(-other_amp, other_amp) from higher modes
+- two additional coefficients from U(-other_amp, other_amp) from higher modes
 
 if dominant mode has m ≠ 0, the symmetric pair (n, -m) is also activated
 
-Key parameters:
+**Key parameters:**
 
-num_basis — number of Zernike terms
+- num_basis — number of Zernike terms
 
-strong_first_max_n — dominant mode chosen from low-order modes
+- strong_first_max_n — dominant mode chosen from low-order modes
 
-first_amp, other_amp — amplitude ranges
+- first_amp, other_amp — amplitude ranges
 
-Spiral Wavefronts
+### Spiral Wavefronts
 Spiral-like wrapped phase pattern:
 
 kappa controls radial phase growth
@@ -100,11 +105,14 @@ random rotation_angle
 
 optional nonsmooth=True for folded variant
 
-Key parameters:
+**Key parameters:**
 
-kappa_range, n_range, amp, nonsmooth
+- kappa_range
+- n_range
+- amp
+- nonsmooth
 
-Distortion Wavefronts (Atmosphere-like)
+### Distortion Wavefronts (Atmosphere-like)
 White Gaussian noise with low-pass filtering:
 
 generate Gaussian noise with given mean, std
@@ -113,39 +121,39 @@ apply 2D Butterworth low-pass filter (butter_N, butter_fc_factor)
 
 optional Gaussian blur
 
-Key parameters:
+**Key parameters:**
 
-std — distortion strength
+- std — distortion strength
 
-butter_N — filter order
+- butter_N — filter order
 
-butter_fc_factor — cutoff scale (fc ~ factor * grid_size)
+- butter_fc_factor — cutoff scale (fc ~ factor * grid_size)
 
-apply_blur, sigma_pix — additional smoothing
+- apply_blur, sigma_pix — additional smoothing
 
-Blur Option (Common)
+### Blur Option (Common)
 Most generators support apply_blur=True with sigma_pix:
 
 larger sigma_pix → smoother wavefronts, weaker high frequencies
 
 smaller sigma_pix → sharper structures
 
-⚖️ Mixing Fractions and None Defaults (Train vs Test)
+## ⚖️ Mixing Fractions and None Defaults (Train vs Test)
 If you generate a mixed dataset (Zernike / Spiral / Distortion), you control the composition with fractions.
 
-Train fractions
+### Train fractions
 These define how many samples of each type appear in the training split:
 
-frac_zernike
+- `frac_zernike`
 
-frac_spiral
+- `frac_spiral`
 
-frac_distortion
+- `frac_distortion`
 
-Test fractions
+### Test fractions
 You have two options:
 
-Option A — Use the same fractions as train (recommended baseline)
+**Option A — Use the same fractions as train (recommended baseline)**
 Set test fractions to None:
 
 frac_zernike_test=None
@@ -157,7 +165,7 @@ frac_distortion_test=None
 In this mode, the generator automatically reuses the train fractions for the test split.
 This is the clean “same distribution” setup.
 
-Option B — Use different fractions for test (distribution shift / stress-test)
+**Option B — Use different fractions for test (distribution shift / stress-test)**
 Set explicit test fractions:
 
 frac_zernike_test=...
@@ -175,7 +183,7 @@ intentionally create a harder test set with a different mix
 Note: fractions do not have to sum to 1 — they are normalized internally.
 The generator converts them into integer counts so that the split sizes match exactly.
 
-📝 Important Notes
+## 📝 Important Notes
 Grid size change: if you change coarse_size, regenerate data to match shapes (both P and coordinate grids)
 
 Testing points: p_test must match the number of sensor points P for direct grid-to-grid visualization
