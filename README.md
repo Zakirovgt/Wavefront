@@ -162,11 +162,11 @@ You have two options:
 **Option A — Use the same fractions as train (recommended baseline)**
 Set test fractions to None:
 
-frac_zernike_test=None
+`frac_zernike_test=None`
 
-frac_spiral_test=None
+`frac_spiral_test=None`
 
-frac_distortion_test=None
+`frac_distortion_test=None`
 
 In this mode, the generator automatically reuses the train fractions for the test split.
 This is the clean “same distribution” setup.
@@ -174,11 +174,11 @@ This is the clean “same distribution” setup.
 **Option B — Use different fractions for test (distribution shift / stress-test)**
 Set explicit test fractions:
 
-frac_zernike_test=...
+`frac_zernike_test=...`
 
-frac_spiral_test=...
+`frac_spiral_test=...`
 
-frac_distortion_test=...
+`frac_distortion_test=...`
 
 This is useful when you want to, for example:
 
@@ -190,8 +190,8 @@ Note: fractions do not have to sum to 1 — they are normalized internally.
 The generator converts them into integer counts so that the split sizes match exactly.
 
 ## 📝 Important Notes
-Grid size change: if you change coarse_size, regenerate data to match shapes (both P and coordinate grids)
+Grid size change: if you change `coarse_size`, regenerate data to match shapes (both P and coordinate grids)
 
-Testing points: p_test must match the number of sensor points P for direct grid-to-grid visualization
+Testing points: `p_test` must match the number of sensor points P for direct grid-to-grid visualization
 
-Model output: --num_outputs=1 predicts only U; multi-output may predict [g1, g2, U] depending on configuration
+Model output: --`num_outputs=1` predicts only U; multi-output may predict [g1, g2, U] depending on configuration
