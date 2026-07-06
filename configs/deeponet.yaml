@@ -1,0 +1,53 @@
+operator_type: deeponet
+data_mode: sensor
+
+training:
+  lr: 0.0005
+  steps: 150000
+  batch_size: 4096
+  weight_decay: 0.0001
+
+  lr_scheduler: warmup_cosine
+  lr_schedule_steps: 10000
+  lr_decay_rate: 0.8
+  lr_alpha: 0.03
+
+  log_iter: 250
+  vis_iter: 5000
+  checkpoint_iter: 5000
+
+model:
+  num_outputs: 1
+
+  p_sensors: 576
+  p_res: 576
+  p_test: 576
+  p_ics_train: 576
+  n_sensors: 576
+
+  branch_input_features: 2
+  trunk_input_features: 2
+
+  hidden_dim: 128
+  branch_hidden_dim: 256
+  trunk_hidden_dim: 256
+
+  branch_num_layers: 4
+  trunk_num_layers: 4
+
+  trunk_num_frequencies: 8
+  trunk_max_freq: 12.0
+  dropout_rate: 0.0
+
+  split_branch: true
+  split_trunk: false
+
+  stacked_do: false
+  separable: false
+  r: 0
+
+  branch_layers: [100, 100, 150, 150, 100]
+  trunk_layers: [100, 100, 150, 100, 100]
+
+loss:
+  res_weight0: 0.1

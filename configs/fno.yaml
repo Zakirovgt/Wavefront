@@ -1,0 +1,36 @@
+operator_type: fno
+data_mode: sensor
+
+training:
+  lr: 0.001
+  steps: 50000
+  batch_size: 64
+  weight_decay: 0.000001
+
+  lr_scheduler: warmup_cosine
+  lr_schedule_steps: 2000
+  lr_decay_rate: 0.7
+  lr_alpha: 0.03
+  warmup_steps: 2000
+
+  log_iter: 250
+  vis_iter: 2000
+  checkpoint_iter: 1000
+
+model:
+  nx: 24
+  ny: 24
+
+  modes1: 12
+  modes2: 12
+  width: 38
+  depth: 4
+
+  in_channels: 2
+  use_grid: false
+  pad_size: 0
+  dropout_rate: 0.0
+  is_training: true
+
+loss:
+  fno_res_weight: 0.0

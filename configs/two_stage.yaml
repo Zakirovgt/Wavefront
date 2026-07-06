@@ -1,0 +1,62 @@
+runtime:
+  branch_grid_path: "1.csv"
+  results_root: "results/two_stage"
+  run_name: null
+
+  mixed_precision: false
+  mp_dtype: "bfloat16"
+
+data:
+  grid_size: 24
+  n_train: 10000
+  n_test: 1000
+
+  frac_zernike: 1.0
+  frac_spiral: 0.0
+  frac_distortion: 0.0
+
+  with_noise: true
+  noise_percentage: 1.0
+  noise_lambda: 0.03
+
+  apply_blur: false
+  sigma_pix: 1.0
+
+  stage1_seed: 42
+  joint_data_seed: 43
+
+stage1:
+  batch_size: 4096
+  steps: 150000
+  lr: 0.0005
+  weight_decay: 0.0001
+
+  log_iter: 250
+  eval_iter: 1000
+  eval_batch: 128
+  seed: 1234
+
+  lr_scheduler: "warmup_cosine"
+  warmup_steps: null
+  warmup_frac: 0.05
+  end_lr_factor: 0.01
+
+  basis_dim: 128
+  branch_hidden_dim: 256
+  trunk_hidden_dim: 256
+  branch_num_layers: 4
+  trunk_num_layers: 4
+  trunk_num_frequencies: 8
+  trunk_max_freq: 12.0
+  dropout_rate: 0.0
+
+fno:
+  config_dir: "configs"
+  seed: 123
+
+joint:
+  steps: 50000
+  batch_size: 32
+  lr: 0.001
+  weight_decay: 0.000001
+  seed: 0

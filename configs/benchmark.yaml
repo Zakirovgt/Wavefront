@@ -1,0 +1,85 @@
+runtime:
+  branch_grid_path: "1.csv"
+
+  output_root: "results/benchmarks"
+  run_name: null
+
+  checkpoint: "best"
+  fail_fast: false
+
+  # Evaluation precision is shared by all sequentially evaluated operators.
+  mixed_precision: false
+  mp_dtype: "bfloat16"
+
+data:
+  grid_size: 24
+  n_train: 10000
+  n_test: 1000
+
+  # Use a seed distinct from the seeds used by training pipelines.
+  seed: 20260706
+
+  frac_zernike: 0.0
+  frac_spiral: 0.0
+  frac_distortion: 1.0
+
+  with_noise: true
+  noise_percentage: 1.0
+  noise_lambda: 0.03
+
+  apply_blur: false
+  sigma_pix: 1.0
+
+evaluation:
+  # Number of held-out samples used for reconstruction metrics and timing.
+  n_eval: 1000
+
+  # "sensor":
+  #   FNO and Poisson receive regular-grid gradients reconstructed from sparse
+  #   sensor-gradient measurements. This is the fair comparison mode for
+  #   sensor-based inputs.
+  #
+  # "grid":
+  #   FNO and Poisson receive clean regular-grid gradient fields directly.
+  #   Use this only when every compared operator was trained for this input.
+  mode: "sensor"
+
+  sensor_to_grid_interp: "linear"
+  bench_batch: 64
+
+runs:
+  # Replace null with actual run directories for available trained models.
+  deeponet: null
+  fno: null
+
+  two_stage: null
+  three_stage: null
+
+visualization:
+  enabled: true
+
+  # Indices are relative to the held-out test split.
+  sample_indices: [0, 10, 20]
+
+  # Supported modes: global | l2 | pointwise.
+  error_mode: "global"
+
+  # Shared color scale for the true wavefront and every prediction.
+  solution_percentiles: [0.0, 100.0]
+
+  # A value of 100.0 preserves all extreme error values without clipping.
+  error_percentile: 100.0
+
+  # Useful when Poisson reconstruction errors are much larger than those of
+  # neural methods.
+  separate_poisson_scale: false
+
+  # Compare clean reference gradients, sensor interpolation, and the Stage-1
+  # DeepONet gradient-map prediction.
+  save_stage1_gradient: true
+
+  # "auto" prefers three-stage, then two-stage.
+  # Allowed values: auto | two_stage | three_stage | none.
+  stage1_source: "auto"
+
+  dpi: 180

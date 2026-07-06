@@ -1,0 +1,19 @@
+grid_size: 24
+
+n_train: 10000
+n_test: 1000
+
+branch_grid_path: "1.csv"
+
+frac_zernike: 0.0
+frac_spiral: 0.0
+frac_distortion: 1.0
+
+with_noise: true
+noise_percentage: 1.0
+noise_lambda: 0.03
+
+apply_blur: false
+sigma_pix: 1.0
+
+seed: 42
