@@ -1,197 +1,379 @@
-# Wavefront Reconstruction with DeepONet (JAX)
+# Wavefront Reconstruction with DeepONet, FNO, and Multi-Stage Operator Learning
 
-This repository contains a pipeline for generating synthetic wavefront data and training a DeepONet model to reconstruct wavefronts **U(x,y)** from measured gradients **(g1, g2)**.
+This repository is an experimental project for reconstructing two-dimensional wavefronts from sparse slope measurements.
+
+The input is a set of discrete wavefront gradients,
+
+```text
+dU/dx, dU/dy
+```
+
+measured at sensor positions. The target is the corresponding wavefront field `U(x, y)` on a regular grid inside a circular pupil.
+
+The project explores several reconstruction approaches:
+
+* DeepONet for mapping sparse sensor gradients to regular gradient fields;
+* Fourier Neural Operators (FNO) for reconstructing wavefronts from gradient maps;
+* a classical Poisson reconstruction baseline;
+* two-stage DeepONet + randomly initialized FNO training;
+* three-stage DeepONet + FNO training with end-to-end joint fine-tuning;
+* sequential benchmark evaluation designed to reduce accelerator-memory usage.
 
 ---
 
-## 📁 Repository Structure
+## Project Status
+
+> **Work in progress — this is not yet a fully runnable release.**
+
+The project is currently being refactored from a notebook-based workflow into a modular Python package.
+
+The code structure, YAML configurations, CLI entry points, dataset artifacts, training pipelines, inference utilities, and benchmark utilities have been migrated into the repository. However:
+
+* `requirements.txt` has **not yet been updated** for the new package structure and current dependencies;
+* the installation workflow is not finalized;
+* end-to-end execution of every command has not yet been validated from a clean environment;
+* the repository should currently be treated as a development snapshot rather than a reproducible release.
+
+The source code and experiment organization are available for inspection, but successful execution may require manual dependency installation and local configuration adjustments.
+
+---
+
+## Example Results
+
+The figures below show earlier synthetic reconstruction examples comparing
+DeepONet, FNO, and the classical Poisson baseline.
+
+### Sensor-gradient input example
+
+<p align="center">
+  <img
+    src="images/sensor_s1.png"
+    alt="Wavefront reconstruction from sparse sensor gradients"
+    width="100%"
+  >
+</p>
+
+<p align="center">
+  <em>
+    Figure 1. Reconstruction example using sparse sensor-gradient input.
+    DeepONet and FNO closely match the target wavefront, while the Poisson
+    baseline has a substantially larger reconstruction error.
+  </em>
+</p>
+
+For the shown sample:
+
+| Method | Relative L2 error |
+|---|---:|
+| DeepONet | 0.005 |
+| FNO | 0.005 |
+| Poisson baseline | 0.525 |
+
+### Regular-grid gradient input example
+
+<p align="center">
+  <img
+    src="images/regular_z1.png"
+    alt="Wavefront reconstruction from regular-grid gradients"
+    width="100%"
+  >
+</p>
+
+<p align="center">
+  <em>
+    Figure 2. Reconstruction example using regular-grid gradient input.
+    This mode evaluates reconstruction when gradient values are available on
+    the full spatial grid.
+  </em>
+</p>
+
+> These figures are illustrative results from earlier synthetic experiments.
+> They are not yet a fully reproduced benchmark for the current repository
+> state.
+
+## Repository Structure
 
 ```text
-├─ models/
-│   ├─ helpers.py        # Training utilities (losses, apply, step)
-│   ├─ setup_deeponet.py # Model initialization/wiring
-│   ├─ deeponet.py       # DeepONet model definition
-│   └─ __init__.py       # Package exports
-├─ requirements.txt      # Python dependencies
-├─ Generator.py          # Data generation entry point
-├─ Wavefront.py          # Training & evaluation entry point
-├─ data/                 # Generated datasets
-│   ├─ derivatives.npy   # Gradients (g1,g2), shape (N, P, 2)
-│   └─ U_true.npy        # Ground-truth wavefronts, shape (N, P)
-└─ results/              # Output directory
-    └─ gradient_recon/
-        └─ <run_folder>/ # Timestamped experiment folder
-            ├─ ckpt/     # Model checkpoints (Orbax)
-            ├─ log.xlsx  # Training logs (losses, weights, metrics)
-            └─ vis/      # Visualizations (pred vs true, differences)
+Wavefront/
+├── configs/
+│   ├── benchmark.yaml          # Benchmark configuration
+│   ├── common.yaml             # Shared training defaults
+│   ├── deeponet.yaml           # DeepONet configuration
+│   ├── fno.yaml                # FNO configuration
+│   ├── standalone_data.yaml    # Synthetic dataset configuration
+│   ├── two_stage.yaml          # Two-stage pipeline configuration
+│   └── three_stage.yaml        # Three-stage pipeline configuration
+│
+├── scripts/
+│   ├── generate_dataset.py     # Generate a portable synthetic dataset artifact
+│   ├── train_deeponet.py       # Train a standalone DeepONet model
+│   ├── train_fno.py            # Train a standalone FNO model
+│   ├── train_two_stage.py      # Train the two-stage baseline
+│   ├── train_three_stage.py    # Train the three-stage model
+│   ├── run_benchmark.py        # Run sequential model comparison
+│   ├── predict_fno.py          # FNO inference from measurement CSV files
+│   ├── predict_two_stage.py    # Two-stage inference from measurement CSV files
+│   └── predict_three_stage.py  # Three-stage inference from measurement CSV files
+│
+├── src/
+│   ├── physics/                # Physics-related utilities
+│   │
+│   └── wavefront/
+│       ├── baselines/          # Classical Poisson reconstruction baseline
+│       ├── data/               # Data generation, artifacts, interpolation, batching
+│       ├── evaluation/         # Metrics, reports, timing, and visualization
+│       ├── inference/          # CSV loading and saved-model inference
+│       ├── metamodel/          # Gradient-map, Stage 2, and joint-training logic
+│       ├── models/             # DeepONet and FNO architectures
+│       ├── pipelines/          # Two-stage and three-stage orchestration
+│       ├── training/           # Optimizers, losses, trainers, and CLI helpers
+│       ├── __init__.py
+│       └── config.py
+│
+├── images/
+│   ├── sensor_s1.png          # Example reconstruction comparison
+│   └── regular_z1.png
+│
+├── requirements.txt            # Not yet updated for the current project state
+└── README.md
 ```
-## 🚀 Quick Start
-### 1) Install Dependencies
+
+---
+
+## Data Generation
+
+Synthetic wavefront datasets can contain a mixture of several wavefront families.
+
+### Zernike wavefronts
+
+Wavefronts are generated as combinations of Zernike modes on the unit disk. This family represents smooth optical aberrations such as defocus, astigmatism, coma, and higher-order distortions.
+
+### Spiral wavefronts
+
+Spiral-like phase patterns are generated using radial and angular phase terms. These samples contain structured rotating features and are useful for testing reconstruction of more complex phase patterns.
+
+### Distortion wavefronts
+
+Atmosphere-like distortions are generated from filtered random fields. A low-pass Butterworth filter and optional Gaussian blur control the spatial smoothness of the resulting wavefront.
+
+### Sensor gradients
+
+For each synthetic wavefront, the project computes gradient measurements:
+
+```text
+g_x = dU/dx
+g_y = dU/dy
+```
+
+The gradient values are sampled at discrete sensor positions and used as the input to DeepONet and the multi-stage pipelines.
+
+---
+
+## Input Modes
+
+The project supports two gradient-input representations.
+
+### `sensor` mode
+
+In `sensor` mode, the input consists of sparse gradient measurements at fixed
+sensor locations:
+
+```text
+(B, P_sensor, 2)
+```
+
+
+where:
+
+- B is the batch size;
+- P_sensor is the number of sensors;
+- the last dimension stores:
+
+`[dU/dx, dU/dy]`
+
+This mode represents the practical case where slope measurements are available
+only at discrete sensor positions.
+
+DeepONet uses sparse sensor gradients directly. In FNO-based workflows, sparse
+measurements are first converted into a regular-grid gradient representation by
+interpolation or by the Stage-1 DeepONet gradient-map model.
+
+
+### regular_grid mode
+
+In regular_grid mode, the input is a dense gradient field on the reconstruction
+grid:
+
+```text
+(B, H, W, 2)
+```
+
+or an equivalent flattened representation:
+
+```text
+(B, H * W, 2)
+```
+
+where H and W are the spatial grid dimensions.
+
+This mode is used when regular-grid gradients are already available or when
+they have been reconstructed from sparse sensor measurements. FNO operates on
+regular-grid gradient fields to predict the final wavefront.
+
+
+---
+
+## Model Overview
+
+### DeepONet
+
+DeepONet receives sparse sensor-gradient measurements and predicts a dense regular-grid gradient field.
+DeepONet supports both `sensor` and `regular_grid` input modes. In the main
+multi-stage workflow, it receives sparse sensor gradients and predicts a dense
+regular-grid gradient field.
+
+```text
+Sparse sensor gradients
+        ↓
+     DeepONet
+        ↓
+Regular-grid gradient map
+```
+
+### FNO
+
+The Fourier Neural Operator receives a dense gradient map and predicts the wavefront field.
+FNO operates on regular-grid gradient fields. When the original measurements
+are sparse, the required regular-grid input is produced by interpolation or by
+the Stage-1 DeepONet gradient-map model.
+
+```text
+Regular-grid gradient map
+        ↓
+        FNO
+        ↓
+Wavefront reconstruction
+```
+
+### Two-stage baseline
+
+The two-stage baseline combines:
+
+```text
+Sparse gradients
+    ↓
+DeepONet
+    ↓
+Predicted gradient grid
+    ↓
+Randomly initialized FNO
+    ↓
+Joint end-to-end optimization
+    ↓
+Wavefront
+```
+
+### Three-stage model
+
+The three-stage pipeline separates gradient reconstruction, FNO training, and final joint fine-tuning.
+
+```text
+Stage 1:
+Sparse sensor gradients → DeepONet → clean gradient grid
+
+Stage 2:
+DeepONet gradient predictions → FNO → wavefront
+
+Stage 3:
+DeepONet + FNO → joint fine-tuning using wavefront reconstruction loss
+```
+
+---
+
+## Dataset Artifacts
+
+The intended dataset format is a portable artifact directory:
+
+```text
+datasets/<dataset_name>/
+├── arrays.npz
+├── generation_config.yaml
+├── metadata.json
+└── sensor_layout.csv
+```
+
+This format is intended to allow the same fixed dataset, train/test split, and sensor layout to be reused across:
+
+* standalone DeepONet training;
+* standalone FNO training;
+* two-stage training;
+* three-stage training;
+* benchmark evaluation.
+
+The artifact workflow is present in the codebase but has not yet been validated as a complete clean-environment workflow.
+
+---
+
+## Intended Command-Line Workflow
+
+The repository contains command-line entry points for the intended workflow:
+
 ```bash
-pip install -r requirements.txt
+python scripts/generate_dataset.py
+python scripts/train_deeponet.py
+python scripts/train_fno.py
+python scripts/train_two_stage.py
+python scripts/train_three_stage.py
+python scripts/run_benchmark.py
 ```
-### 2) Generate Data (Required First Step)
-Run the generator to create the dataset:
+
+Inference entry points are also included:
+
 ```bash
-python Generator.py
+python scripts/predict_fno.py
+python scripts/predict_two_stage.py
+python scripts/predict_three_stage.py
 ```
-This creates the data/ directory with:
 
-data/derivatives.npy
+> These commands describe the intended interface. They are not yet guaranteed to work end-to-end until dependencies, installation instructions, and the remaining integration checks are finalized.
 
-data/U_true.npy
+---
 
-### 3) Train and Visualize
-Run the training pipeline:
-```bash
-python Wavefront.py
+## Current Limitations
+
+* The dependency list in `requirements.txt` is outdated.
+* The project is not yet packaged as a finalized installable release.
+* Full clean-environment reproducibility has not yet been verified.
+* Training and inference commands may require manual environment setup.
+* The provided reconstruction figure is an earlier experimental result, not a current automated regression benchmark.
+* Dataset, checkpoint, and accelerator-specific workflows are still being finalized.
+* The two input modes, `sensor` and `regular_grid`, are represented in the
+  codebase, but their complete end-to-end workflows have not yet been
+  validated from a clean installation.
+
+---
+
+## Development Direction
+
+The current refactoring focuses on:
+
+1. separating notebook logic into reusable modules;
+2. making training and inference scripts independent of notebook state;
+3. saving reproducible dataset artifacts;
+4. supporting sequential model loading to reduce accelerator-memory pressure;
+5. preparing a clean public repository structure;
+6. updating dependencies, installation instructions, and validation workflows.
+
+---
+
+## Original Workflow
+
+The project originally began as a notebook-oriented DeepONet reconstruction workflow. The current repository reorganizes that work into modular components while preserving the main scientific goal:
+
+```text
+Sparse slope measurements
+        ↓
+Operator learning
+        ↓
+Wavefront reconstruction
 ```
-This creates a new run folder at results/gradient_recon/<timestamp>/ containing:
-
-checkpoints in ckpt/
-
-training logs in log.xlsx
-
-visualizations in vis/
-
-## 🔬 Data & Model Overview
-Each sample is defined on a square grid [-1, 1] × [-1, 1] with a unit-disk mask
-(values outside the pupil are zeroed).
-
-Input measurements: slope gradients
-
-g1 = dU/dx
-
-g2 = dU/dy
-
-Network goal: reconstruct U at queried coordinates (x,y) from the full slope measurement vector.
-
-Training combines:
-
-ICS loss (supervised): matches predicted U (and optionally predicted g1, g2) to ground truth
-
-Residual loss: enforces consistency between U and its derivatives via autodiff (dU/dx, dU/dy)
-
-Residual weight adaptation (NTK-style): balances training speeds using a gradient norm ratio
-
-## 🧮 Generator Specifications
-The generator creates wavefronts on the unit disk (normalized inside, zero outside).
-
-### Zernike Wavefronts
-Linear combination of Zernike modes:
-
-- one dominant coefficient from U(-first_amp, first_amp) (excluding piston)
-
-- two additional coefficients from U(-other_amp, other_amp) from higher modes
-
-if dominant mode has m ≠ 0, the symmetric pair (n, -m) is also activated
-
-**Key parameters:**
-
-- num_basis — number of Zernike terms
-
-- strong_first_max_n — dominant mode chosen from low-order modes
-
-- first_amp, other_amp — amplitude ranges
-
-### Spiral Wavefronts
-Spiral-like wrapped phase pattern:
-
-kappa controls radial phase growth
-
-n controls angular frequency (number of "arms"/twists)
-
-random rotation_angle
-
-optional nonsmooth=True for folded variant
-
-**Key parameters:**
-
-- kappa_range
-- n_range
-- amp
-- nonsmooth
-
-### Distortion Wavefronts (Atmosphere-like)
-White Gaussian noise with low-pass filtering:
-
-generate Gaussian noise with given mean, std
-
-apply 2D Butterworth low-pass filter (butter_N, butter_fc_factor)
-
-optional Gaussian blur
-
-**Key parameters:**
-
-- std — distortion strength
-
-- butter_N — filter order
-
-- butter_fc_factor — cutoff scale (fc ~ factor * grid_size)
-
-- apply_blur, sigma_pix — additional smoothing
-
-### Blur Option (Common)
-Most generators support apply_blur=True with sigma_pix:
-
-larger sigma_pix → smoother wavefronts, weaker high frequencies
-
-smaller sigma_pix → sharper structures
-
-## 📊 Example Results
-Example reconstructions on test samples generated by the synthetic wavefront generator.
-
-![Zernike_polynomial reconstruction](images/exmpl_1.png)
-![Spiral reconstruction](images/exmpl_2.png)
-
-## ⚖️ Mixing Fractions and None Defaults (Train vs Test)
-If you generate a mixed dataset (Zernike / Spiral / Distortion), you control the composition with fractions.
-
-### Train fractions
-These define how many samples of each type appear in the training split:
-
-- `frac_zernike`
-
-- `frac_spiral`
-
-- `frac_distortion`
-
-### Test fractions
-You have two options:
-
-**Option A — Use the same fractions as train (recommended baseline)**
-Set test fractions to None:
-
-`frac_zernike_test=None`
-
-`frac_spiral_test=None`
-
-`frac_distortion_test=None`
-
-In this mode, the generator automatically reuses the train fractions for the test split.
-This is the clean “same distribution” setup.
-
-**Option B — Use different fractions for test (distribution shift / stress-test)**
-Set explicit test fractions:
-
-`frac_zernike_test=...`
-
-`frac_spiral_test=...`
-
-`frac_distortion_test=...`
-
-This is useful when you want to, for example:
-
-train mostly on Zernike, but test on more spirals/distortions
-
-intentionally create a harder test set with a different mix
-
-Note: fractions do not have to sum to 1 — they are normalized internally.
-The generator converts them into integer counts so that the split sizes match exactly.
-
-## 📝 Important Notes
-Grid size change: if you change `coarse_size`, regenerate data to match shapes (both P and coordinate grids)
-
-Testing points: `p_test` must match the number of sensor points P for direct grid-to-grid visualization
-
-Model output: --`num_outputs=1` predicts only U; multi-output may predict [g1, g2, U] depending on configuration
