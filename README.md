@@ -40,8 +40,9 @@ The source code and experiment organization are available for inspection, but su
 
 ## Example Results
 
-The figures below show earlier synthetic reconstruction examples comparing
-DeepONet, FNO, and the classical Poisson baseline.
+The figures below show earlier synthetic reconstructions for test sample
+`#20001`. They compare learned operator-based methods with the classical
+Poisson baseline.
 
 ### Sensor-gradient input example
 
@@ -55,19 +56,22 @@ DeepONet, FNO, and the classical Poisson baseline.
 
 <p align="center">
   <em>
-    Figure 1. Reconstruction example using sparse sensor-gradient input.
-    DeepONet and FNO closely match the target wavefront, while the Poisson
-    baseline has a substantially larger reconstruction error.
+    Figure 1. Reconstruction from sparse sensor-gradient measurements.
+    The multi-stage metamodel achieves the lowest relative L2 error in this
+    example, while DeepONet and FNO also closely reproduce the target
+    wavefront. The Poisson baseline has a much larger error and does not
+    recover the spiral structure accurately.
   </em>
 </p>
 
-For the shown sample:
+For the shown sensor-input sample:
 
 | Method | Relative L2 error |
 |---|---:|
 | DeepONet | 0.005 |
 | FNO | 0.005 |
-| Poisson baseline | 0.525 |
+| Metamodel | 0.003 |
+| Poisson baseline | 0.816 |
 
 ### Regular-grid gradient input example
 
@@ -81,15 +85,25 @@ For the shown sample:
 
 <p align="center">
   <em>
-    Figure 2. Reconstruction example using regular-grid gradient input.
-    This mode evaluates reconstruction when gradient values are available on
-    the full spatial grid.
+    Figure 2. Reconstruction from regular-grid gradient input.
+    DeepONet achieves the lowest relative L2 error for this example, followed
+    by FNO. The Poisson baseline reconstructs the overall low-frequency
+    structure but has noticeably larger residual errors.
   </em>
 </p>
 
+For the shown regular-grid-input sample:
+
+| Method | Relative L2 error |
+|---|---:|
+| DeepONet | 0.011 |
+| FNO | 0.018 |
+| Poisson baseline | 0.072 |
+
 > These figures are illustrative results from earlier synthetic experiments.
-> They are not yet a fully reproduced benchmark for the current repository
-> state.
+> They show individual test samples rather than aggregate benchmark metrics.
+> The values have not yet been reproduced as a complete benchmark for the
+> current refactored repository state.
 
 ## Repository Structure
 
